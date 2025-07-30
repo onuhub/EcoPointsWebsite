@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EcoPoints Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+  <style>
+    body {
+      background-color: #104e32;
+      background-image: url("https://i.gifer.com/7V6h.gif"); /* Example falling leaves GIF */
+      background-repeat: repeat;
+      background-size: cover;
+      background-attachment: fixed;
+      font-family: sans-serif;
+      color: white;
+    }
+    .overlay {
+      background-color: rgba(16, 78, 50, 0.85);
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+    }
+  </style>
+</head>
+<body class="relative">
+  <div class="overlay"></div>
+
+  <!-- Hero Section -->
+  <section class="min-h-screen flex flex-col items-center justify-center px-4">
+    <div class="flex w-full max-w-6xl h-[550px] bg-white rounded-xl shadow-xl overflow-hidden border border-green-300">
+
+      <!-- Left Panel -->
+      <div class="w-1/2 bg-green-50 p-8 flex flex-col justify-center relative overflow-hidden">
+        <h1 class="text-4xl font-bold text-green-800 mb-4">Track Your Environmental Impact</h1>
+        <img src="card.png" alt="Eco Card" class="w-40 mb-6" />
+        <p class="text-green-800 text-lg">
+          Reduce your carbon emissions and earn EcoPoints for every green decision.
+        </p>
+      </div>
+
+      <!-- Right Panel (Calculator) -->
+      <div class="w-1/2 bg-green-100 p-8 flex flex-col justify-center">
+        <h2 class="text-2xl font-bold text-green-900 mb-4">Calculate Your Carbon Footprint</h2>
+
+        <form id="carbonForm" class="space-y-4">
+          <input type="text" placeholder="Your Name" class="w-full border p-3 rounded" required />
+          <input type="number" id="amount" placeholder="Transaction Amount (INR)" class="w-full border p-3 rounded" required />
+
+          <select id="category" class="w-full border p-3 rounded" required>
+            <option value="">Select Category</option>
+            <option>Food</option>
+            <option>Transport</option>
+            <option>Shopping</option>
+            <option>Groceries</option>
+            <option>Utilities</option>
+            <option>Fuel & Energy</option>
+            <option>Travel</option>
+            <option>Education</option>
+            <option>Miscellaneous</option>
+          </select>
+
+          <select id="subcategory" class="w-full border p-3 rounded" required>
+            <option value="">Select Subcategory</option>
+          </select>
+
+          <button type="submit" class="w-full bg-green-700 hover:bg-green-800 text-white font-bold py-3 rounded">
+            Calculate
+          </button>
+        </form>
+
+        <p class="mt-6 text-xl text-green-900 font-semibold">Estimated CO₂: <span id="output">--</span> kg</p>
+
+        <div class="flex justify-center mt-4">
+          <a href="#results">
+            <div class="w-10 h-10 bg-white rounded-full shadow flex items-center justify-center text-green-700 font-bold text-xl">&#8595;</div>
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Results Section -->
+  <section id="results" class="min-h-screen py-16 px-6 flex flex-col items-center">
+    <h2 class="text-4xl font-bold mb-6">Your Carbon Insights</h2>
+    <p class="text-lg mb-8 max-w-2xl text-center">
+      Based on your input, here’s a breakdown of your environmental impact and suggestions for improvement.
+    </p>
+
+    <div class="bg-white text-green-900 w-full max-w-3xl p-6 rounded shadow-md">
+      <p id="placeholderMessage" class="text-center text-lg">🚀 Submit a calculation to view your carbon chart here!</p>
+      <canvas id="emissionChart" class="hidden" height="200"></canvas>
+    </div>
+  </section>
+
+  <!-- JavaScript Logic -->
+  <script>
+    const form = document.getElementById("carbonForm");
+    const output = document.getElementById("output");
+    const categorySelect = document.getElementById("category");
+    const subcategorySelect = document.getElementById("subcategory");
+
+    const subcategoriesMap = {
+      "Food": ["Plant-Based", "Dairy", "Non-Veg"],
+      "Transport": ["Taxi", "Public Transport"],
+      "Shopping": ["Online", "Offline"],
+      "Groceries": ["Fruits", "Vegetables", "Packaged"],
+      "Utilities": ["Electricity", "Water", "Internet"],
+      "Fuel & Energy": ["Petrol", "Diesel", "LPG"],
+      "Travel": ["Flight", "Hotel", "Train"],
+      "Education": ["Books", "Tuition", "Online"],
+      "Miscellaneous": ["Other"]
+    };
+
+    categorySelect.addEventListener("change", () => {
+      const selected = categorySelect.value;
+      const subs = subcategoriesMap[selected] || [];
+
+      subcategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+      subs.forEach(sub => {
+        const opt = document.createElement("option");
+        opt.value = sub;
+        opt.textContent = sub;
+        subcategorySelect.appendChild(opt);
+      });
+    });
+
+    let chartInstance = null;
+
+    form.addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const amount = parseFloat(document.getElementById("amount").value);
+      const category = categorySelect.value;
+      const subcategory = subcategorySelect.value;
+
+      try {
+        const res = await fetch("http://127.0.0.1:8000/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount, category, subcategory })
+        });
+
+        const data = await res.json();
+        const estimated = data.estimated_co2;
+        output.textContent = estimated + " kg";
+
+        if (estimated <= 5) confetti();
+
+        document.getElementById("placeholderMessage").style.display = "none";
+        const chartCanvas = document.getElementById("emissionChart");
+        chartCanvas.classList.remove("hidden");
+
+        const ctx = chartCanvas.getContext("2d");
+        if (chartInstance) chartInstance.destroy();
+
+        chartInstance = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: ["Your CO₂", "Target (5kg)", "Average"],
+            datasets: [{
+              label: "CO₂ Emissions (kg)",
+              data: [estimated, 5, 7.5],
+              backgroundColor: [
+                estimated <= 5 ? "#16a34a" : "#ef4444",
+                "#2563eb",
+                "#facc15"
+              ],
+              borderRadius: 8
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              y: { beginAtZero: true }
+            }
+          }
+        });
+
+      } catch (err) {
+        console.error("Error:", err);
+        output.textContent = "❌ Prediction failed.";
+      }
+    });
+  </script>
+</body>
+</html>
