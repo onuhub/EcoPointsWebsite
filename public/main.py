@@ -37,6 +37,11 @@ class PredictionRequest(BaseModel):
     category: str
     subcategory: str
 
+# Root route — to show API is working
+@app.get("/")
+def read_root():
+    return {"message": "Carbon Footprint API is live!"}
+
 # Prediction route
 @app.post("/predict")
 async def predict(data: PredictionRequest):
